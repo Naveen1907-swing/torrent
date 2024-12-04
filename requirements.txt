@@ -1,2 +1,2 @@
-streamlit
-libtorrent
+streamlit==1.32.2
+python-libtorrent==2.0.7
