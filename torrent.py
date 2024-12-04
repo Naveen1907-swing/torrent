@@ -1,28 +1,47 @@
-import os
-import subprocess
+import streamlit as st
+import libtorrent as lt
+import time
 
-# Set local download path
-DOWNLOAD_PATH = os.path.join(os.path.expanduser("~"), "Downloads", "Torrents")
-os.makedirs(DOWNLOAD_PATH, exist_ok=True)
+# Initialize session
+ses = lt.session()
+ses.listen_on(6881, 6891)
+downloads = []
 
-# Set the path to aria2c.exe - MODIFY THIS PATH to where you extracted aria2c.exe
-ARIA2_PATH = r"C:\Path\To\aria2c.exe"  # Replace with your actual path
+# Streamlit UI
+st.title("Torrent Downloader")
 
-# Function to add torrents from magnet links
-def add_magnet_links():
-    while True:
-        magnet_link = input("Enter Magnet Link Or Type Exit: ")
-        if magnet_link.lower() == "exit":
-            break
-        try:
-            # Use aria2c to download the torrent
-            subprocess.run([ARIA2_PATH, magnet_link, '-d', DOWNLOAD_PATH])
-        except Exception as e:
-            print(f"Error adding torrent: {e}")
+# Input for magnet link
+magnet_link = st.text_input("Enter Magnet Link Or Type Exit:")
 
-# Run the function
-if __name__ == "__main__":
-    try:
-        add_magnet_links()
-    except Exception as e:
-        print(f"Error: {e}")
+if st.button("Add Magnet Link"):
+    if magnet_link.lower() != "exit":
+        params = {"save_path": "/content/drive/My Drive/Torrent"}
+        downloads.append(lt.add_magnet_uri(ses, magnet_link, params))
+        st.success("Magnet link added!")
+
+# Display download progress
+state_str = [
+    "queued",
+    "checking",
+    "downloading metadata",
+    "downloading",
+    "finished",
+    "seeding",
+    "allocating",
+    "checking fastresume",
+]
+
+if st.button("Start Download"):
+    while downloads:
+        for index, download in enumerate(downloads[:]):
+            if not download.is_seed():
+                s = download.status()
+                st.write(
+                    f"{download.name()} - {s.download_rate / 1000} kB/s - {state_str[s.state]}"
+                )
+                st.progress(s.progress)
+            else:
+                ses.remove_torrent(download)
+                downloads.remove(download)
+                st.success(f"{download.name()} complete")
+        time.sleep(1)
